@@ -1,17 +1,30 @@
 package main
 
 import (
+	"aplikasi-kasir/database"
+	"aplikasi-kasir/handlers"
+	"aplikasi-kasir/repositories"
+	"aplikasi-kasir/services"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 type Category struct {
 	ID          int    `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+type Config struct {
+	Port   string `mapstructure:"PORT"`
+	DBConn string `mapstructure:"DB_CONN"`
 }
 
 // Global variable to store categories (for demo purpose)
@@ -22,11 +35,40 @@ var categories = []Category{
 }
 
 func main() {
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	if _, err := os.Stat(".env"); err == nil {
+		viper.SetConfigFile(".env")
+		_ = viper.ReadInConfig()
+	}
+
+	config := Config{
+		Port:   viper.GetString("PORT"),
+		DBConn: viper.GetString("DB_CONN"),
+	}
+
+	// setup database
+	db, err := database.InitDB(config.DBConn)
+	if err != nil {
+		log.Fatal("Failed to initialize database", err)
+	}
+
+	defer db.Close()
+
+	productRepo := repositories.NewProductRepository(db)
+	productService := services.NewProductService(productRepo)
+	productHandler := handlers.NewProductHandler(productService)
+
+	http.HandleFunc("/api/products", productHandler.HandleProducts)
+	http.HandleFunc("/api/products/", productHandler.HandleProductByID)
+
 	http.HandleFunc("/api/categories", categoriesHandler)
 	http.HandleFunc("/api/categories/", categoryHandler)
 
-	fmt.Println("Server running on port 8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	addr := "0.0.0.0:" + config.Port
+	fmt.Println("Server running on port", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
 		fmt.Println("Error starting server:", err)
 	}
 }
