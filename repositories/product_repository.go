@@ -14,7 +14,23 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 	return &ProductRepository{db: db}
 }
 
-func (repo *ProductRepository) GetAll() ([]models.Product, error) {
+// CREATE TABLE IF NOT EXISTS transactions (
+// 	id SERIAL PRIMARY KEY,
+// 	total_amount INT NOT NULL,
+// 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+// );
+
+// CREATE TABLE IF NOT EXISTS transaction_details (
+// 	id SERIAL PRIMARY KEY,
+// 	transaction_id INT REFERENCES transactions(id) ON DELETE CASCADE,
+// 	product_id INT REFERENCES products(id),
+// 	product_name VARCHAR(200) NOT NULL,
+// 	product_price INT NOT NULL,
+// 	quantity INT NOT NULL,
+// 	subtotal INT NOT NULL,
+// );
+
+func (repo *ProductRepository) GetAll(name string) ([]models.Product, error) {
 	query := `
 		SELECT
 			p.id,
@@ -29,7 +45,13 @@ func (repo *ProductRepository) GetAll() ([]models.Product, error) {
 			ON c.id = p.category_id
 	`
 
-	rows, err := repo.db.Query(query)
+	var args []any
+	if name != "" {
+		query += " WHERE p.name ILIKE $1"
+		args = append(args, "%"+name+"%")
+	}
+
+	rows, err := repo.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

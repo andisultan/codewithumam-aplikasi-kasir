@@ -57,6 +57,21 @@ func main() {
 	http.HandleFunc("/api/product-categories", productCategoryHandler.HandleProductCategories)
 	http.HandleFunc("/api/product-categories/", productCategoryHandler.HandleProductCategoryByID)
 
+	// Transaction
+	transactionRepo := repositories.NewTransactionRepository(db)
+	transactionService := services.NewTransactionService(transactionRepo)
+	transactionHandler := handlers.NewTransactionHandler(transactionService)
+
+	http.HandleFunc("/api/checkout", transactionHandler.HandleCheckout) // POST
+
+	// Report
+	reportRepo := repositories.NewReportRepository(db)
+	reportService := services.NewReportService(reportRepo)
+	reportHandler := handlers.NewReportHandler(reportService)
+
+	http.HandleFunc("/api/report/hari-ini", reportHandler.HandleDailyReport)
+	http.HandleFunc("/api/report", reportHandler.HandleReport)
+
 	addr := "0.0.0.0:" + config.Port
 	fmt.Println("Server running on port", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
